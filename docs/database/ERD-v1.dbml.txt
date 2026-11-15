@@ -1,0 +1,113 @@
+
+Enum location_type {
+  BRANCH
+  WAREHOUSE
+}
+
+Enum transfer_status {
+  DRAFT
+  APPROVED
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+Enum movement_type {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+Table branches {
+  id bigint [pk, increment]
+  name varchar(150) [not null]
+  address varchar(255)
+  created_at timestamp
+}
+
+Table warehouses {
+  id bigint [pk, increment]
+  name varchar(150) [not null]
+  address varchar(255)
+  created_at timestamp
+}
+
+Table inventory_locations {
+  id bigint [pk, increment]
+  name varchar(150) [not null]
+  location_type location_type [not null]
+  branch_id bigint [unique]
+  warehouse_id bigint [unique]
+}
+
+Table categories {
+  id bigint [pk, increment]
+  name varchar(100) [not null, unique]
+}
+
+Table products {
+  id bigint [pk, increment]
+  category_id bigint
+  sku varchar(100) [not null, unique]
+  name varchar(200) [not null]
+  description text
+  unit varchar(30)
+  created_at timestamp
+}
+
+Table inventory_balances {
+  location_id bigint [not null]
+  product_id bigint [not null]
+  quantity decimal(14,3) [not null, default: 0]
+  updated_at timestamp
+
+  indexes {
+    (location_id, product_id) [pk]
+  }
+}
+
+Table stock_transfers {
+  id bigint [pk, increment]
+  source_location_id bigint [not null]
+  destination_location_id bigint [not null]
+  status transfer_status [not null]
+  transfer_date timestamp
+  notes text
+  created_at timestamp
+  completed_at timestamp
+}
+
+Table stock_transfer_items {
+  id bigint [pk, increment]
+  transfer_id bigint [not null]
+  product_id bigint [not null]
+  quantity decimal(14,3) [not null]
+}
+
+Table stock_movements {
+  id bigint [pk, increment]
+  location_id bigint [not null]
+  product_id bigint [not null]
+  movement_type movement_type [not null]
+  quantity decimal(14,3) [not null]
+  reference_type varchar(50) [not null]
+  reference_id bigint [not null]
+  created_at timestamp
+}
+
+Ref: inventory_locations.branch_id - branches.id
+Ref: inventory_locations.warehouse_id - warehouses.id
+
+Ref: products.category_id > categories.id
+
+Ref: inventory_balances.location_id > inventory_locations.id
+Ref: inventory_balances.product_id > products.id
+
+Ref: stock_transfers.source_location_id > inventory_locations.id
+Ref: stock_transfers.destination_location_id > inventory_locations.id
+
+Ref: stock_transfer_items.transfer_id > stock_transfers.id
+Ref: stock_transfer_items.product_id > products.id
+
+Ref: stock_movements.location_id > inventory_locations.id
+Ref: stock_movements.product_id > products.id
