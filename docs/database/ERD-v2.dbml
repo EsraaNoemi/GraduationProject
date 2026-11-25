@@ -1,0 +1,379 @@
+
+Enum location_type {
+  BRANCH
+  WAREHOUSE
+}
+
+Enum transfer_status {
+  DRAFT
+  APPROVED
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+Enum movement_type {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+Enum customer_status {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+Enum cart_status {
+  ACTIVE
+  CONVERTED
+  ABANDONED
+}
+
+Enum order_status {
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+Enum payment_status {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+Enum delivery_status {
+  PENDING
+  ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+}
+
+Enum reservation_status {
+  ACTIVE
+  RELEASED
+  CONSUMED
+}
+
+Enum return_status {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED
+  REFUNDED
+}
+
+Table branches {
+  id bigint [pk, increment]
+  name varchar(150) [not null]
+  address varchar(255)
+  created_at timestamp
+}
+
+Table warehouses {
+  id bigint [pk, increment]
+  name varchar(150) [not null]
+  address varchar(255)
+  created_at timestamp
+}
+
+Table inventory_locations {
+  id bigint [pk, increment]
+  name varchar(150) [not null]
+  location_type location_type [not null]
+  branch_id bigint [unique]
+  warehouse_id bigint [unique]
+}
+
+Table categories {
+  id bigint [pk, increment]
+  name varchar(100) [not null, unique]
+}
+
+Table products {
+  id bigint [pk, increment]
+  category_id bigint
+  sku varchar(100) [not null, unique]
+  name varchar(200) [not null]
+  description text
+  unit varchar(30)
+  unit_price decimal(12,2) [not null]
+  is_active boolean [not null, default: true]
+  created_at timestamp
+}
+
+Table product_images {
+  id bigint [pk, increment]
+  product_id bigint [not null]
+  image_url varchar(500) [not null]
+  alt_text varchar(200)
+  is_primary boolean [not null, default: false]
+  display_order int [default: 0]
+}
+
+Table inventory_balances {
+  location_id bigint [not null]
+  product_id bigint [not null]
+  quantity decimal(14,3) [not null, default: 0]
+  reserved_quantity decimal(14,3) [not null, default: 0]
+  updated_at timestamp
+
+  indexes {
+    (location_id, product_id) [pk]
+  }
+}
+
+Table stock_transfers {
+  id bigint [pk, increment]
+  source_location_id bigint [not null]
+  destination_location_id bigint [not null]
+  status transfer_status [not null]
+  transfer_date timestamp
+  notes text
+  created_at timestamp
+  completed_at timestamp
+}
+
+Table stock_transfer_items {
+  id bigint [pk, increment]
+  transfer_id bigint [not null]
+  product_id bigint [not null]
+  quantity decimal(14,3) [not null]
+
+  indexes {
+    (transfer_id, product_id) [unique]
+  }
+}
+
+Table stock_movements {
+  id bigint [pk, increment]
+  location_id bigint [not null]
+  product_id bigint [not null]
+  movement_type movement_type [not null]
+  quantity decimal(14,3) [not null]
+  reference_type varchar(50) [not null]
+  reference_id bigint [not null]
+  created_at timestamp
+}
+
+// CUSTOMER ACCOUNTS
+
+Table customers {
+  id bigint [pk, increment]
+  full_name varchar(200) [not null]
+  email varchar(255) [not null, unique]
+  phone varchar(30) [unique]
+  password_hash varchar(255) [not null]
+  status customer_status [not null, default: 'ACTIVE']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table customer_addresses {
+  id bigint [pk, increment]
+  customer_id bigint [not null]
+  label varchar(50)
+  city varchar(100) [not null]
+  area varchar(150) [not null]
+  street varchar(255) [not null]
+  building_number varchar(50)
+  floor_number varchar(30)
+  apartment_number varchar(30)
+  latitude decimal(10,7)
+  longitude decimal(10,7)
+  additional_instructions text
+  is_default boolean [not null, default: false]
+  created_at timestamp
+}
+
+// DELIVERY COVERAGE
+
+Table delivery_zones {
+  id bigint [pk, increment]
+  name varchar(150) [not null]
+  city varchar(100) [not null]
+  is_active boolean [not null, default: true]
+}
+
+Table branch_delivery_zones {
+  branch_id bigint [not null]
+  delivery_zone_id bigint [not null]
+  delivery_fee decimal(10,2) [not null, default: 0]
+  estimated_delivery_minutes int
+  is_active boolean [not null, default: true]
+
+  indexes {
+    (branch_id, delivery_zone_id) [pk]
+  }
+}
+
+// SHOPPING CART
+
+Table carts {
+  id bigint [pk, increment]
+  customer_id bigint [not null]
+  status cart_status [not null, default: 'ACTIVE']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table cart_items {
+  id bigint [pk, increment]
+  cart_id bigint [not null]
+  product_id bigint [not null]
+  quantity decimal(14,3) [not null]
+  added_at timestamp
+
+  indexes {
+    (cart_id, product_id) [unique]
+  }
+}
+
+// CUSTOMER ORDERS
+
+Table orders {
+  id bigint [pk, increment]
+  customer_id bigint [not null]
+  customer_address_id bigint
+  branch_id bigint [not null]
+  delivery_zone_id bigint [not null]
+  status order_status [not null]
+  subtotal decimal(12,2) [not null]
+  delivery_fee decimal(10,2) [not null]
+  total_amount decimal(12,2) [not null]
+  delivery_address_snapshot text [not null]
+  customer_notes text
+  placed_at timestamp
+  confirmed_at timestamp
+  created_at timestamp
+}
+
+Table order_items {
+  id bigint [pk, increment]
+  order_id bigint [not null]
+  product_id bigint [not null]
+  product_name_snapshot varchar(200) [not null]
+  unit_price decimal(12,2) [not null]
+  quantity decimal(14,3) [not null]
+  line_total decimal(12,2) [not null]
+}
+
+Table order_status_history {
+  id bigint [pk, increment]
+  order_id bigint [not null]
+  old_status varchar(40)
+  new_status varchar(40) [not null]
+  changed_at timestamp
+  notes text
+}
+
+// STOCK RESERVATIONS
+
+Table inventory_reservations {
+  id bigint [pk, increment]
+  order_item_id bigint [not null, unique]
+  location_id bigint [not null]
+  product_id bigint [not null]
+  quantity decimal(14,3) [not null]
+  status reservation_status [not null]
+  created_at timestamp
+  released_at timestamp
+}
+
+// PAYMENTS
+
+Table payments {
+  id bigint [pk, increment]
+  order_id bigint [not null]
+  amount decimal(12,2) [not null]
+  payment_method varchar(50) [not null]
+  status payment_status [not null]
+  transaction_reference varchar(255)
+  paid_at timestamp
+  created_at timestamp
+}
+
+// DELIVERY EXECUTION
+
+Table deliveries {
+  id bigint [pk, increment]
+  order_id bigint [not null, unique]
+  status delivery_status [not null]
+  scheduled_at timestamp
+  dispatched_at timestamp
+  delivered_at timestamp
+  delivery_notes text
+}
+
+// RETURNS
+
+Table returns {
+  id bigint [pk, increment]
+  order_id bigint [not null]
+  status return_status [not null]
+  reason text
+  requested_at timestamp
+  processed_at timestamp
+}
+
+Table return_items {
+  id bigint [pk, increment]
+  return_id bigint [not null]
+  order_item_id bigint [not null]
+  quantity decimal(14,3) [not null]
+  refund_amount decimal(12,2)
+}
+
+// RELATIONSHIPS
+
+Ref: inventory_locations.branch_id - branches.id
+Ref: inventory_locations.warehouse_id - warehouses.id
+
+Ref: products.category_id > categories.id
+Ref: product_images.product_id > products.id
+
+Ref: inventory_balances.location_id > inventory_locations.id
+Ref: inventory_balances.product_id > products.id
+
+Ref: stock_transfers.source_location_id > inventory_locations.id
+Ref: stock_transfers.destination_location_id > inventory_locations.id
+Ref: stock_transfer_items.transfer_id > stock_transfers.id
+Ref: stock_transfer_items.product_id > products.id
+
+Ref: stock_movements.location_id > inventory_locations.id
+Ref: stock_movements.product_id > products.id
+
+Ref: customer_addresses.customer_id > customers.id
+
+Ref: branch_delivery_zones.branch_id > branches.id
+Ref: branch_delivery_zones.delivery_zone_id > delivery_zones.id
+
+Ref: carts.customer_id > customers.id
+Ref: cart_items.cart_id > carts.id
+Ref: cart_items.product_id > products.id
+
+Ref: orders.customer_id > customers.id
+Ref: orders.customer_address_id > customer_addresses.id
+Ref: orders.branch_id > branches.id
+Ref: orders.delivery_zone_id > delivery_zones.id
+
+Ref: order_items.order_id > orders.id
+Ref: order_items.product_id > products.id
+
+Ref: order_status_history.order_id > orders.id
+
+Ref: inventory_reservations.order_item_id > order_items.id
+Ref: inventory_reservations.location_id > inventory_locations.id
+Ref: inventory_reservations.product_id > products.id
+
+Ref: payments.order_id > orders.id
+Ref: deliveries.order_id - orders.id
+
+Ref: returns.order_id > orders.id
+Ref: return_items.return_id > returns.id
+Ref: return_items.order_item_id > order_items.id
